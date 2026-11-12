@@ -5266,5 +5266,135 @@ end)
 
 local Informations = v6:AddTab("Informations")
 
+local KillAuraTab = v6:AddTab("Auto Kill ServerHop")
+KillAuraTab:AddLabel("Auto Kill Server Hop").TextSize = 20
+
+local _G_KillAuraActive = false
+local _G_ServerHopActive = false
+
+-- Функция для побега с сервера (GETOUT)
+local function GetOutServer()
+    local Services = setmetatable({}, {
+        __index = function(self, name)
+            local success, cache = pcall(function()
+                return cloneref(game:GetService(name))
+            end)
+            if success then
+                rawset(self, name, cache)
+                return cache
+            else
+                error("Invalid Service: " .. tostring(name))
+            end
+        end
+    })
+    local PlaceId, JobId = game.PlaceId, game.JobId
+    local servers = {}
+    local req = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
+    local body = Services.HttpService:JSONDecode(req)
+
+    if body and body.data then
+        for i, v in next, body.data do
+            if type(v) == "table" and tonumber(v.playing) and tonumber(v.maxPlayers) and v.playing < v.maxPlayers and v.id ~= JobId then
+                table.insert(servers, 1, v.id)
+            end
+        end
+    end
+    
+    if #servers >= 1 then
+        Services.TeleportService:TeleportToPlaceInstance(PlaceId, servers[math.random(1, #servers)], game.Players.LocalPlayer)
+    else
+        Services.TeleportService:Teleport(PlaceId, game.Players.LocalPlayer)
+    end
+end
+
+-- Включатель авто-убийства
+KillAuraTab:AddSwitch("Auto Kill (Save Zone)"), function(state)
+    _G_KillAuraActive = state
+    
+    if state then
+        
+        workspace.FallenPartsDestroyHeight = 0/0
+        local SafeSpot = Instance.new("Part")
+        SafeSpot.Parent = workspace
+        SafeSpot.Name = "safety"
+        SafeSpot.Position = Vector3.new(0,-1000,0)
+        SafeSpot.Size = Vector3.new(500,1,500)
+        SafeSpot.Anchored = true
+        
+        if game.Players.LocalPlayer.Character then
+            game.Players.LocalPlayer.Character:MoveTo(workspace.safety.Position)
+        end
+        
+        task.spawn(function()
+            while _G_KillAuraActive do
+                task.wait(0.09)
+                pcall(function()
+                    local player = game.Players.LocalPlayer
+                    local punch = player.Backpack:FindFirstChild("Punch") or (player.Character and player.Character:FindFirstChild("Punch"))
+                    
+                    if punch and punch.Parent == player.Backpack then
+                        punch.Parent = player.Character
+                    else
+                       
+                        for _, target in ipairs(game.Players:GetPlayers()) do
+                            if (target ~= player and target:FindFirstChild("Durability") and target:FindFirstChild("leaderstats")) then
+                                if (target.Durability.Value <= player.leaderstats.Strength.Value * 2 and target.leaderstats.Rebirths.Value <= 200000) then
+                                    local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+                                    local rHand = player.Character and player.Character:FindFirstChild("RightHand")
+                                    local lHand = player.Character and player.Character:FindFirstChild("LeftHand")
+                                    
+                                    player.muscleEvent:FireServer("punch","rightHand")
+                                    
+                                    if root and rHand and lHand then
+                                        firetouchinterest(rHand, root, 1)
+                                        firetouchinterest(lHand, root, 1)
+                                        firetouchinterest(rHand, root, 0)
+                                        firetouchinterest(lHand, root, 0)
+                                    end
+                                end
+                            end
+                        end
+                        
+                        -- Выход, если мало ХП или прошло 120 секунд
+                        if player.Character and player.Character:FindFirstChild("Humanoid") then
+                            if player.Character.Humanoid.Health <= player.Character.Humanoid.MaxHealth / 10 or game.Workspace.DistributedGameTime >= 120 then
+                                GetOutServer()
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+    else
+        if workspace:FindFirstChild("safety") then
+            workspace.safety:Destroy()
+        end
+        pcall(function()
+            workspace.FallenPartsDestroyHeight = -500
+        end)
+        if game.Players.LocalPlayer.Character then
+            game.Players.LocalPlayer.Character:MoveTo(Vector3.new(2, 8, 115)) -- Спавн
+        end
+    end
+end)
+
+KillAuraTab:AddSwitch("AutoServerHop"), function(state)
+    _G_ServerHopActive = state
+    
+    if state then
+        task.spawn(function()
+            while _G_ServerHopActive do
+                if #game.Players:GetPlayers() <= 9 then
+                    task.wait(6)
+                    if _G_ServerHopActive then -- Проверяем, не выключили ли мы его за эти 6 секунд
+                        GetOutServer()
+                    end
+                end
+                task.wait(1)
+            end
+        end)
+    end
+end)
+
 Informations:AddLabel(" ").TextSize = 50
 Informations:AddLabel("TheDestroyes Private").TextSize = 30
