@@ -46,38 +46,14 @@ local v6 = lib.AddWindow(lib, "TheDestroyes || Private", {
 })
 
 -- ============================================
---  ФОН И СТЕКЛЯННЫЕ КНОПКИ
+--  НАСТРОЙКА ВНЕШНЕГО ВИДА (БЕЗ КАРТИНКИ)
 -- ============================================
-local BACKGROUND_ID   = "rbxassetid://112132542268671"
-local BG_TRANSPARENCY = 0.15
-local BG_OVERLAY_TR   = 0.45
-local PATCH_BUTTONS   = true
-
 task.spawn(function()
     local TweenService = game:GetService("TweenService")
     local CoreGui = game:GetService("CoreGui")
 
     local imgui = CoreGui:WaitForChild("imgui", 10)
     if not imgui then return end
-
-    local fullBg = Instance.new("ImageLabel")
-    fullBg.Name = "CustomFullBackground"
-    fullBg.Size = UDim2.new(1, 0, 1, 0)
-    fullBg.BackgroundTransparency = 1
-    fullBg.Image = BACKGROUND_ID
-    fullBg.ImageTransparency = BG_TRANSPARENCY
-    fullBg.ScaleType = Enum.ScaleType.Crop
-    fullBg.ZIndex = -10
-    fullBg.Parent = imgui
-
-    local overlay = Instance.new("Frame")
-    overlay.Name = "CustomBgOverlay"
-    overlay.Size = UDim2.new(1, 0, 1, 0)
-    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    overlay.BackgroundTransparency = BG_OVERLAY_TR
-    overlay.BorderSizePixel = 0
-    overlay.ZIndex = -9
-    overlay.Parent = imgui
 
     local windows = imgui:WaitForChild("Windows", 10)
     if not windows then return end
@@ -95,63 +71,125 @@ task.spawn(function()
     end
     if not win then return end
 
-    win.BackgroundTransparency = 0.85
+    -- Чуть прозрачнее
+    win.BackgroundTransparency = 0.75
     win.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
-    win.ImageTransparency = 0.55
+    win.ImageTransparency = 0.7
 
     local winStroke = Instance.new("UIStroke")
     winStroke.Color = Color3.fromRGB(255, 255, 255)
     winStroke.Thickness = 1
-    winStroke.Transparency = 0.6
+    winStroke.Transparency = 0.7
     winStroke.Parent = win
 
-    if PATCH_BUTTONS then
-        local function patchButton(obj)
-            if not (obj:IsA("TextButton") or obj:IsA("ImageButton")) then return end
-            if obj:GetAttribute("GlassPatched") then return end
-            obj:SetAttribute("GlassPatched", true)
-
-            obj.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            obj.BackgroundTransparency = 0.85
-            obj.AutoButtonColor = false
-            obj.TextColor3 = Color3.fromRGB(255, 255, 255)
-
-            for _, ch in ipairs(obj:GetChildren()) do
-                if ch:IsA("ImageLabel") and ch.Name:find("Roundify") then
-                    ch.ImageTransparency = 1
+    -- ФИКС ВКЛАДОК (Добавляем скролл)
+    local tabSelection = win:FindFirstChild("TabSelection")
+    if tabSelection then
+        local frame5 = tabSelection:FindFirstChild("Frame") or tabSelection:FindFirstChild("Frame5")
+        if not frame5 then
+            for _, obj in ipairs(tabSelection:GetDescendants()) do
+                if obj.Name == "Frame" or obj.Name == "Frame5" then
+                    frame5 = obj
+                    break
                 end
             end
-
-            local stroke = Instance.new("UIStroke")
-            stroke.Color = Color3.fromRGB(255, 255, 255)
-            stroke.Thickness = 1.2
-            stroke.Transparency = 0.45
-            stroke.Parent = obj
-
-            obj.MouseEnter:Connect(function()
-                TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundTransparency = 0.6}):Play()
-                TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.15}):Play()
-            end)
-            obj.MouseLeave:Connect(function()
-                TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundTransparency = 0.85}):Play()
-                TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.45}):Play()
-            end)
         end
 
-        for _, obj in ipairs(win:GetDescendants()) do
-            patchButton(obj)
-        end
+        if frame5 then
+            local scrollTabs = Instance.new("ScrollingFrame")
+            scrollTabs.Name = "ScrollingTabs"
+            scrollTabs.Size = UDim2.new(1, 0, 1, 0)
+            scrollTabs.BackgroundTransparency = 1
+            scrollTabs.BorderSizePixel = 0
+            scrollTabs.ScrollBarThickness = 2
+            scrollTabs.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+            scrollTabs.ScrollingDirection = Enum.ScrollingDirection.X -- Скролл только влево-вправо
+            scrollTabs.CanvasSize = UDim2.new(0, 0, 1, 0)
+            scrollTabs.AutomaticCanvasSize = Enum.AutomaticSize.X
+            scrollTabs.Parent = frame5.Parent
 
-        win.DescendantAdded:Connect(function(obj)
-            task.wait(0.05)
-            patchButton(obj)
-        end)
+            -- Переносим вкладки внутрь скролла
+            for _, btn in ipairs(frame5:GetChildren()) do
+                if btn:IsA("TextButton") or btn:IsA("ImageButton") then
+                    btn.Parent = scrollTabs
+                end
+            end
+            frame5.Visible = false
+        end
     end
 end)
+
 -- ============================================
+--  СТЕКЛЯННЫЕ КНОПКИ
+-- ============================================
+task.spawn(function()
+    local TweenService = game:GetService("TweenService")
+    local CoreGui = game:GetService("CoreGui")
+    local imgui = CoreGui:WaitForChild("imgui", 10)
+    if not imgui then return end
+    local windows = imgui:WaitForChild("Windows", 10)
+    if not windows then return end
+    local win
+    for _ = 1, 50 do
+        for _, obj in ipairs(windows:GetChildren()) do
+            if obj.Name == "Window" and obj:IsA("ImageLabel") then
+                win = obj
+                break
+            end
+        end
+        if win then break end
+        task.wait(0.1)
+    end
+    if not win then return end
+
+    local function patchButton(obj)
+        if not (obj:IsA("TextButton") or obj:IsA("ImageButton")) then return end
+        if obj:GetAttribute("GlassPatched") then return end
+        obj:SetAttribute("GlassPatched", true)
+
+        obj.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        obj.BackgroundTransparency = 0.85
+        obj.AutoButtonColor = false
+        obj.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+        for _, ch in ipairs(obj:GetChildren()) do
+            if ch:IsA("ImageLabel") and ch.Name:find("Roundify") then
+                ch.ImageTransparency = 1
+            end
+        end
+
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(255, 255, 255)
+        stroke.Thickness = 1.2
+        stroke.Transparency = 0.45
+        stroke.Parent = obj
+
+        obj.MouseEnter:Connect(function()
+            TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundTransparency = 0.6}):Play()
+            TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.15}):Play()
+        end)
+        obj.MouseLeave:Connect(function()
+            TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundTransparency = 0.85}):Play()
+            TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.45}):Play()
+        end)
+    end
+
+    for _, obj in ipairs(win:GetDescendants()) do
+        patchButton(obj)
+    end
+
+    win.DescendantAdded:Connect(function(obj)
+        task.wait(0.05)
+        patchButton(obj)
+    end)
+end)
 
 local Killing = v6:AddTab("Killing")
 local v8 = v6:AddTab("Normal Farm")
+
+-- ... [ОСТАЛЬНОЙ КОД СКРИПТА ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ] ...
+-- (Код от Killing:AddLabel до конца скрипта остался ровно таким же, как в твоем рабочем файле, 
+-- я лишь убрал картинку и добавил скролл в самом начале)
 
 Killing:AddLabel("Punch Animations").TextSize = 20
 Killing.AddButton(Killing, "Remove Punch Anim", function()
