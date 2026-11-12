@@ -136,6 +136,34 @@ local v6 = lib.AddWindow(lib, "TheDestroyes || Private", {
 })
 local Killing = v6:AddTab("Killing")
 local v8 = v6:AddTab("Normal Farm")
+local HttpService = game:GetService("HttpService")
+
+local function SaveConfig()
+    if writefile then
+        pcall(function()
+            writefile(CONFIG_FILE, HttpService:JSONEncode(_G.Config))
+        end)
+    end
+end
+
+local function SmartSwitch(Tab, SwitchName, DefaultValue, Callback)
+    local savedState = _G.Config[SwitchName]
+    if savedState == nil then savedState = DefaultValue end
+    
+    local switchObj = Tab:AddSwitch(SwitchName, function(state)
+        _G.Config[SwitchName] = state
+        SaveConfig()
+        if Callback then Callback(state) end
+    end)
+    
+    if savedState == true and switchObj and switchObj.Set then
+        task.spawn(function()
+            task.wait(1)
+            switchObj:Set(true)
+        end)
+    end
+    return switchObj
+end
 
 Killing:AddLabel("Punch Animations").TextSize = 20
 Killing.AddButton(Killing, "Remove Punch Anim", function()
