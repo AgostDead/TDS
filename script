@@ -2,6 +2,118 @@ local unpack_ = unpack or table.unpack
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/AgostDead/new-ui-painkillers/main/ui"))()
 local color3 = Color3.fromRGB(255, 0, 0)
 local vector2New = Vector2.new
+local BACKGROUND_ID   = "rbxassetid://112132542268671"  -- твой айди
+local BG_TRANSPARENCY = 0.15                            -- 0 = непрозрачный, 1 = невидимый
+local BG_OVERLAY_TR   = 0.45                            -- затемнение, чтобы читался текст
+local PATCH_BUTTONS   = true                            -- сделать кнопки стеклянными
+
+task.spawn(function()
+    local TweenService = game:GetService("TweenService")
+    local CoreGui = game:GetService("CoreGui")
+
+    local imgui = CoreGui:WaitForChild("imgui", 10)
+    if not imgui then warn("[BG] imgui не найден") return end
+
+    -- 1) ФОН на весь экран (под всем UI библиотеки)
+    local fullBg = Instance.new("ImageLabel")
+    fullBg.Name = "CustomFullBackground"
+    fullBg.Size = UDim2.new(1, 0, 1, 0)
+    fullBg.Position = UDim2.new(0, 0, 0, 0)
+    fullBg.BackgroundTransparency = 1
+    fullBg.Image = BACKGROUND_ID
+    fullBg.ImageTransparency = BG_TRANSPARENCY
+    fullBg.ScaleType = Enum.ScaleType.Crop
+    fullBg.ZIndex = -10
+    fullBg.Parent = imgui
+
+    local overlay = Instance.new("Frame")
+    overlay.Name = "CustomBgOverlay"
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.Position = UDim2.new(0, 0, 0, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = BG_OVERLAY_TR
+    overlay.BorderSizePixel = 0
+    overlay.ZIndex = -9
+    overlay.Parent = imgui
+
+    -- 2) Ждём окно библиотеки
+    local windows = imgui:WaitForChild("Windows", 10)
+    if not windows then warn("[BG] Windows не найден") return end
+
+    local win
+    for _ = 1, 50 do
+        for _, obj in ipairs(windows:GetChildren()) do
+            if obj.Name == "Window" and obj:IsA("ImageLabel") then
+                win = obj
+                break
+            end
+        end
+        if win then break end
+        task.wait(0.1)
+    end
+    if not win then warn("[BG] Window не найден") return end
+
+    -- 3) Делаем окно полупрозрачным, чтобы фон было видно сквозь него
+    win.BackgroundTransparency = 0.85
+    win.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    -- дефолтную тёмную 9-slice подложку гасим, но не убираем полностью:
+    win.ImageTransparency = 0.55
+
+    local winStroke = Instance.new("UIStroke")
+    winStroke.Color = Color3.fromRGB(255, 255, 255)
+    winStroke.Thickness = 1
+    winStroke.Transparency = 0.6
+    winStroke.Parent = win
+
+    -- 4) (опционально) стеклянные кнопки с силуэтом
+    if PATCH_BUTTONS then
+        local function patchButton(obj)
+            if not (obj:IsA("TextButton") or obj:IsA("ImageButton")) then return end
+            if obj:GetAttribute("GlassPatched") then return end
+            obj:SetAttribute("GlassPatched", true)
+
+            obj.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            obj.BackgroundTransparency = 0.85
+            obj.AutoButtonColor = false
+            obj.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+            -- гасим дефолтную подложку Roundify (если есть)
+            for _, ch in ipairs(obj:GetChildren()) do
+                if ch:IsA("ImageLabel") and ch.Name:find("Roundify") then
+                    ch.ImageTransparency = 1
+                end
+            end
+
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = Color3.fromRGB(255, 255, 255)
+            stroke.Thickness = 1.2
+            stroke.Transparency = 0.45
+            stroke.Parent = obj
+
+            obj.MouseEnter:Connect(function()
+                TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundTransparency = 0.6}):Play()
+                TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.15}):Play()
+            end)
+            obj.MouseLeave:Connect(function()
+                TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundTransparency = 0.85}):Play()
+                TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.45}):Play()
+            end)
+        end
+
+        -- патчим всё, что уже есть
+        for _, obj in ipairs(win:GetDescendants()) do
+            patchButton(obj)
+        end
+
+        -- и ловим новые кнопки (при переключении вкладок)
+        win.DescendantAdded:Connect(function(obj)
+            task.wait(0.05)
+            patchButton(obj)
+        end)
+    end
+
+    print("[BG] Фон установлен: " .. BACKGROUND_ID)
+end)
 local v6 = lib.AddWindow(lib, "TheDestroyes || Private", {
 	main_color = color3,
 	min_size = vector2New(570, 700),
