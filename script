@@ -2,6 +2,21 @@ local unpack_ = unpack or table.unpack
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/AgostDead/new-ui-painkillers/main/ui"))()
 local color3 = Color3.fromRGB(255, 0, 0)
 local vector2New = Vector2.new
+_G.Config = {}
+local CONFIG_FILE = "AgostDead_Config.json"
+
+local function LoadConfig()
+    if isfile and readfile and isfile(CONFIG_FILE) then
+        local success, data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(readfile(CONFIG_FILE))
+        end)
+        if success and type(data) == "table" then
+            _G.Config = data
+            print("[Config] Настройки успешно загружены.")
+        end
+    end
+end
+LoadConfig()
 local BACKGROUND_ID   = "rbxassetid://112132542268671"  -- твой айди
 local BG_TRANSPARENCY = 0.15                            -- 0 = непрозрачный, 1 = невидимый
 local BG_OVERLAY_TR   = 0.45                            -- затемнение, чтобы читался текст
