@@ -46,7 +46,7 @@ local v6 = lib.AddWindow(lib, "TheDestroyes || Private", {
 })
 
 -- ============================================
---  НАСТРОЙКА ВНЕШНЕГО ВИДА (БЕЗ КАРТИНКИ)
+--  НАСТРОЙКА ВНЕШНЕГО ВИДА (БЕЗ КАРТИНКИ) + СКРОЛЛ ВКЛАДОК
 -- ============================================
 task.spawn(function()
     local TweenService = game:GetService("TweenService")
@@ -71,7 +71,7 @@ task.spawn(function()
     end
     if not win then return end
 
-    -- Чуть прозрачнее
+    -- Убираем картинку, делаем окно чуть прозрачнее
     win.BackgroundTransparency = 0.75
     win.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     win.ImageTransparency = 0.7
@@ -82,13 +82,15 @@ task.spawn(function()
     winStroke.Transparency = 0.7
     winStroke.Parent = win
 
-    -- ФИКС ВКЛАДОК (Добавляем скролл)
+    -- ФИКС ВКЛАДОК (Добавляем горизонтальный скролл)
     local tabSelection = win:FindFirstChild("TabSelection")
     if tabSelection then
         local frame5 = tabSelection:FindFirstChild("Frame") or tabSelection:FindFirstChild("Frame5")
+        
+        -- Если не нашли по имени, ищем контейнер, в котором лежат кнопки
         if not frame5 then
             for _, obj in ipairs(tabSelection:GetDescendants()) do
-                if obj.Name == "Frame" or obj.Name == "Frame5" then
+                if (obj.Name == "Frame" or obj.Name == "Frame5") and obj:FindFirstChildWhichIsA("TextButton") then
                     frame5 = obj
                     break
                 end
@@ -108,9 +110,9 @@ task.spawn(function()
             scrollTabs.AutomaticCanvasSize = Enum.AutomaticSize.X
             scrollTabs.Parent = frame5.Parent
 
-            -- Переносим вкладки внутрь скролла
+            -- Переносим кнопки вкладок в скролл
             for _, btn in ipairs(frame5:GetChildren()) do
-                if btn:IsA("TextButton") or btn:IsA("ImageButton") then
+                if btn:IsA("TextButton") or btn:IsA("ImageButton") or btn:IsA("UIListLayout") then
                     btn.Parent = scrollTabs
                 end
             end
