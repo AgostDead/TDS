@@ -46,7 +46,7 @@ local v6 = lib.AddWindow(lib, "TheDestroyes || Private", {
 })
 
 -- ============================================
---  НАСТРОЙКА ВНЕШНЕГО ВИДА (БЕЗ КАРТИНКИ) + СКРОЛЛ ВКЛАДОК
+--  НАСТРОЙКА ВНЕШНЕГО ВИДА (БЕЗ КАРТИНКИ)
 -- ============================================
 task.spawn(function()
     local TweenService = game:GetService("TweenService")
@@ -81,44 +81,6 @@ task.spawn(function()
     winStroke.Thickness = 1
     winStroke.Transparency = 0.7
     winStroke.Parent = win
-
-    -- ФИКС ВКЛАДОК (Добавляем горизонтальный скролл)
-    local tabSelection = win:FindFirstChild("TabSelection")
-    if tabSelection then
-        local frame5 = tabSelection:FindFirstChild("Frame") or tabSelection:FindFirstChild("Frame5")
-        
-        -- Если не нашли по имени, ищем контейнер, в котором лежат кнопки
-        if not frame5 then
-            for _, obj in ipairs(tabSelection:GetDescendants()) do
-                if (obj.Name == "Frame" or obj.Name == "Frame5") and obj:FindFirstChildWhichIsA("TextButton") then
-                    frame5 = obj
-                    break
-                end
-            end
-        end
-
-        if frame5 then
-            local scrollTabs = Instance.new("ScrollingFrame")
-            scrollTabs.Name = "ScrollingTabs"
-            scrollTabs.Size = UDim2.new(1, 0, 1, 0)
-            scrollTabs.BackgroundTransparency = 1
-            scrollTabs.BorderSizePixel = 0
-            scrollTabs.ScrollBarThickness = 2
-            scrollTabs.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
-            scrollTabs.ScrollingDirection = Enum.ScrollingDirection.X -- Скролл только влево-вправо
-            scrollTabs.CanvasSize = UDim2.new(0, 0, 1, 0)
-            scrollTabs.AutomaticCanvasSize = Enum.AutomaticSize.X
-            scrollTabs.Parent = frame5.Parent
-
-            -- Переносим кнопки вкладок в скролл
-            for _, btn in ipairs(frame5:GetChildren()) do
-                if btn:IsA("TextButton") or btn:IsA("ImageButton") or btn:IsA("UIListLayout") then
-                    btn.Parent = scrollTabs
-                end
-            end
-            frame5.Visible = false
-        end
-    end
 end)
 
 -- ============================================
@@ -186,12 +148,16 @@ task.spawn(function()
     end)
 end)
 
-local Killing = v6:AddTab("Killing")
-local v8 = v6:AddTab("Normal Farm")
-
--- ... [ОСТАЛЬНОЙ КОД СКРИПТА ОСТАЕТСЯ БЕЗ ИЗМЕНЕНИЙ] ...
--- (Код от Killing:AddLabel до конца скрипта остался ровно таким же, как в твоем рабочем файле, 
--- я лишь убрал картинку и добавил скролл в самом начале)
+-- СОКРАЩЕННЫЕ ВКЛАДКИ
+local Killing = v6:AddTab("Kill")
+local v8 = v6:AddTab("Farm")
+local Gift = v6:AddTab("Gift")
+local Shop = v6:AddTab("Shop")
+local v357 = v6:AddTab("Fast")
+local Miscs = v6:AddTab("Misc")
+local Specs = v6:AddTab("Specs")
+local Calc = v6:AddTab("Calc")
+local Informations = v6:AddTab("Info")
 
 Killing:AddLabel("Punch Animations").TextSize = 20
 Killing.AddButton(Killing, "Remove Punch Anim", function()
@@ -1312,6 +1278,137 @@ Killing.AddSwitch(Killing, "Punch When Dead (Protein Egg Required)", function(p1
 	t1.value17.AntiFly = nil
 end)
 
+-- ============================================
+--  AUTO KILL SERVER HOP (Теперь внутри Killing)
+-- ============================================
+Killing:AddLabel("Auto Kill Server Hop").TextSize = 20
+
+local _G_KillAuraActive = false
+local _G_ServerHopActive = false
+
+local function GetOutServer()
+    local Services = setmetatable({}, {
+        __index = function(self, name)
+            local success, cache = pcall(function()
+                return cloneref(game:GetService(name))
+            end)
+            if success then
+                rawset(self, name, cache)
+                return cache
+            else
+                return game:GetService(name)
+            end
+        end
+    })
+    local PlaceId, JobId = game.PlaceId, game.JobId
+    local servers = {}
+    local req = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
+    local body = Services.HttpService:JSONDecode(req)
+
+    if body and body.data then
+        for i, v in next, body.data do
+            if type(v) == "table" and tonumber(v.playing) and tonumber(v.maxPlayers) and v.playing < v.maxPlayers and v.id ~= JobId then
+                table.insert(servers, 1, v.id)
+            end
+        end
+    end
+    
+    if #servers >= 1 then
+        Services.TeleportService:TeleportToPlaceInstance(PlaceId, servers[math.random(1, #servers)], game.Players.LocalPlayer)
+    else
+        Services.TeleportService:Teleport(PlaceId, game.Players.LocalPlayer)
+    end
+end
+
+AutoSaveSwitch(Killing, "Auto Kill (Save Zone)", function(state)
+    _G_KillAuraActive = state
+    
+    if state then
+        workspace.FallenPartsDestroyHeight = 0/0
+        local SafeSpot = Instance.new("Part")
+        SafeSpot.Parent = workspace
+        SafeSpot.Name = "safety"
+        SafeSpot.Position = Vector3.new(0,-1000,0)
+        SafeSpot.Size = Vector3.new(500,1,500)
+        SafeSpot.Anchored = true
+        
+        if game.Players.LocalPlayer.Character then
+            game.Players.LocalPlayer.Character:MoveTo(workspace.safety.Position)
+        end
+        
+        task.spawn(function()
+            while _G_KillAuraActive do
+                task.wait(0.09)
+                pcall(function()
+                    local player = game.Players.LocalPlayer
+                    local punch = player.Backpack:FindFirstChild("Punch") or (player.Character and player.Character:FindFirstChild("Punch"))
+                    
+                    if punch and punch.Parent == player.Backpack then
+                        punch.Parent = player.Character
+                    else
+                        for _, target in ipairs(game.Players:GetPlayers()) do
+                            if (target ~= player and target:FindFirstChild("Durability") and target:FindFirstChild("leaderstats")) then
+                                if (target.Durability.Value <= player.leaderstats.Strength.Value * 2 and target.leaderstats.Rebirths.Value <= 200000) then
+                                    local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+                                    local rHand = player.Character and player.Character:FindFirstChild("RightHand")
+                                    local lHand = player.Character and player.Character:FindFirstChild("LeftHand")
+                                    
+                                    player.muscleEvent:FireServer("punch","rightHand")
+                                    
+                                    if root and rHand and lHand then
+                                        firetouchinterest(rHand, root, 1)
+                                        firetouchinterest(lHand, root, 1)
+                                        firetouchinterest(rHand, root, 0)
+                                        firetouchinterest(lHand, root, 0)
+                                    end
+                                end
+                            end
+                        end
+                        
+                        if player.Character and player.Character:FindFirstChild("Humanoid") then
+                            if player.Character.Humanoid.Health <= player.Character.Humanoid.MaxHealth / 10 or game.Workspace.DistributedGameTime >= 120 then
+                                GetOutServer()
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+    else
+        if workspace:FindFirstChild("safety") then
+            workspace.safety:Destroy()
+        end
+        pcall(function()
+            workspace.FallenPartsDestroyHeight = -500
+        end)
+        if game.Players.LocalPlayer.Character then
+            game.Players.LocalPlayer.Character:MoveTo(Vector3.new(2, 8, 115))
+        end
+    end
+end)
+
+AutoSaveSwitch(Killing, "Auto Server Hop", function(state)
+    _G_ServerHopActive = state
+    
+    if state then
+        task.spawn(function()
+            while _G_ServerHopActive do
+                if #game.Players:GetPlayers() <= 9 then
+                    task.wait(6)
+                    if _G_ServerHopActive then
+                        GetOutServer()
+                    end
+                end
+                task.wait(1)
+            end
+        end)
+    end
+end)
+
+-- ============================================
+--  ДАЛЬШЕ ИДЕТ ОСТАЛЬНОЙ КОД ВКЛАДОК
+-- ============================================
+
 local Gift = v6:AddTab("Gift")
 
 Gift:AddLabel("Gifting Protein egg:").TextSize = 22
@@ -1449,6 +1546,8 @@ task.spawn(function()
 		task.wait(0.25)
 	end
 end)
+
+-- (Остальные вкладки: Shop, Farm, Fast, Misc, Specs, Calc идут без изменений)
 
 local Shop = v6:AddTab("Shop")
 
@@ -5335,146 +5434,17 @@ v690:AddButton("Calculate Durability", function()
 	end
 end)
 
-local Informations = v6:AddTab("Informations")
-local Settings = v6:AddTab("Настройки")
+local Informations = v6:AddTab("Info")
 
-Settings:AddButton("💾 СОХРАНИТЬ НАСТРОЙКИ", function()
+Informations:AddButton("💾 СОХРАНИТЬ НАСТРОЙКИ", function()
     SaveConfig()
     game:GetService("StarterGui"):SetCore("SendNotification", {Title="Успех", Text="Настройки сохранены!", Duration=3})
 end)
 
-Settings:AddButton("🗑️ УДАЛИТЬ ФАЙЛ КОНФИГА", function()
+Informations:AddButton("🗑️ УДАЛИТЬ ФАЙЛ КОНФИГА", function()
     if delfile and isfile(CONFIG_FILE) then
         delfile(CONFIG_FILE)
         game:GetService("StarterGui"):SetCore("SendNotification", {Title="Сброс", Text="Файл конфига удален!", Duration=3})
-    end
-end)
-
--- ============================================
---  AUTO KILL SERVER HOP
--- ============================================
-local KillAuraTab = v6:AddTab("Auto Kill ServerHop")
-KillAuraTab:AddLabel("Auto Kill Server Hop").TextSize = 20
-
-local _G_KillAuraActive = false
-local _G_ServerHopActive = false
-
-local function GetOutServer()
-    local Services = setmetatable({}, {
-        __index = function(self, name)
-            local success, cache = pcall(function()
-                return cloneref(game:GetService(name))
-            end)
-            if success then
-                rawset(self, name, cache)
-                return cache
-            else
-                return game:GetService(name)
-            end
-        end
-    })
-    local PlaceId, JobId = game.PlaceId, game.JobId
-    local servers = {}
-    local req = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
-    local body = Services.HttpService:JSONDecode(req)
-
-    if body and body.data then
-        for i, v in next, body.data do
-            if type(v) == "table" and tonumber(v.playing) and tonumber(v.maxPlayers) and v.playing < v.maxPlayers and v.id ~= JobId then
-                table.insert(servers, 1, v.id)
-            end
-        end
-    end
-    
-    if #servers >= 1 then
-        Services.TeleportService:TeleportToPlaceInstance(PlaceId, servers[math.random(1, #servers)], game.Players.LocalPlayer)
-    else
-        Services.TeleportService:Teleport(PlaceId, game.Players.LocalPlayer)
-    end
-end
-
-AutoSaveSwitch(KillAuraTab, "Auto Kill (Save Zone)", function(state)
-    _G_KillAuraActive = state
-    
-    if state then
-        workspace.FallenPartsDestroyHeight = 0/0
-        local SafeSpot = Instance.new("Part")
-        SafeSpot.Parent = workspace
-        SafeSpot.Name = "safety"
-        SafeSpot.Position = Vector3.new(0,-1000,0)
-        SafeSpot.Size = Vector3.new(500,1,500)
-        SafeSpot.Anchored = true
-        
-        if game.Players.LocalPlayer.Character then
-            game.Players.LocalPlayer.Character:MoveTo(workspace.safety.Position)
-        end
-        
-        task.spawn(function()
-            while _G_KillAuraActive do
-                task.wait(0.09)
-                pcall(function()
-                    local player = game.Players.LocalPlayer
-                    local punch = player.Backpack:FindFirstChild("Punch") or (player.Character and player.Character:FindFirstChild("Punch"))
-                    
-                    if punch and punch.Parent == player.Backpack then
-                        punch.Parent = player.Character
-                    else
-                        for _, target in ipairs(game.Players:GetPlayers()) do
-                            if (target ~= player and target:FindFirstChild("Durability") and target:FindFirstChild("leaderstats")) then
-                                if (target.Durability.Value <= player.leaderstats.Strength.Value * 2 and target.leaderstats.Rebirths.Value <= 200000) then
-                                    local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-                                    local rHand = player.Character and player.Character:FindFirstChild("RightHand")
-                                    local lHand = player.Character and player.Character:FindFirstChild("LeftHand")
-                                    
-                                    player.muscleEvent:FireServer("punch","rightHand")
-                                    
-                                    if root and rHand and lHand then
-                                        firetouchinterest(rHand, root, 1)
-                                        firetouchinterest(lHand, root, 1)
-                                        firetouchinterest(rHand, root, 0)
-                                        firetouchinterest(lHand, root, 0)
-                                    end
-                                end
-                            end
-                        end
-                        
-                        if player.Character and player.Character:FindFirstChild("Humanoid") then
-                            if player.Character.Humanoid.Health <= player.Character.Humanoid.MaxHealth / 10 or game.Workspace.DistributedGameTime >= 120 then
-                                GetOutServer()
-                            end
-                        end
-                    end
-                end)
-            end
-        end)
-    else
-        if workspace:FindFirstChild("safety") then
-            workspace.safety:Destroy()
-        end
-        pcall(function()
-            workspace.FallenPartsDestroyHeight = -500
-        end)
-        if game.Players.LocalPlayer.Character then
-            game.Players.LocalPlayer.Character:MoveTo(Vector3.new(2, 8, 115))
-        end
-    end
-end)
-
-AutoSaveSwitch(KillAuraTab, "Auto Server Hop", function(state)
-    _G_ServerHopActive = state
-    
-    if state then
-        task.spawn(function()
-            while _G_ServerHopActive do
-                if #game.Players:GetPlayers() <= 9 then
-                    task.wait(6)
-                    if _G_ServerHopActive then
-                        GetOutServer()
-                    end
-                end
-                task.wait(1)
-            end
-        end)
     end
 end)
 
