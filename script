@@ -1,13 +1,155 @@
-
 local unpack_ = unpack or table.unpack
 local lib = loadstring(game:HttpGet("https://raw.githubusercontent.com/AgostDead/new-ui-painkillers/main/ui"))()
 local color3 = Color3.fromRGB(255, 0, 0)
 local vector2New = Vector2.new
+
+-- ============================================
+--  СИСТЕМА АВТОСЕЙВА
+-- ============================================
+_G.Config = {}
+local CONFIG_FILE = "TheDestroyes_Config.json"
+
+local function LoadConfig()
+    if isfile and readfile and isfile(CONFIG_FILE) then
+        local ok, data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(readfile(CONFIG_FILE))
+        end)
+        if ok and type(data) == "table" then
+            _G.Config = data
+        end
+    end
+end
+LoadConfig()
+
+local HttpService = game:GetService("HttpService")
+local function SaveConfig()
+    if writefile then
+        pcall(function()
+            writefile(CONFIG_FILE, HttpService:JSONEncode(_G.Config))
+        end)
+    end
+end
+
+local function AutoSaveSwitch(Tab, SwitchName, Callback)
+    return Tab:AddSwitch(SwitchName, function(state)
+        _G.Config[SwitchName] = state
+        SaveConfig()
+        if Callback then Callback(state) end
+    end)
+end
+-- ============================================
+
 local v6 = lib.AddWindow(lib, "TheDestroyes || Private", {
 	main_color = color3,
 	min_size = vector2New(570, 700),
 	can_resize = false
 })
+
+-- ============================================
+--  ФОН И СТЕКЛЯННЫЕ КНОПКИ
+-- ============================================
+local BACKGROUND_ID   = "rbxassetid://112132542268671"
+local BG_TRANSPARENCY = 0.15
+local BG_OVERLAY_TR   = 0.45
+local PATCH_BUTTONS   = true
+
+task.spawn(function()
+    local TweenService = game:GetService("TweenService")
+    local CoreGui = game:GetService("CoreGui")
+
+    local imgui = CoreGui:WaitForChild("imgui", 10)
+    if not imgui then return end
+
+    local fullBg = Instance.new("ImageLabel")
+    fullBg.Name = "CustomFullBackground"
+    fullBg.Size = UDim2.new(1, 0, 1, 0)
+    fullBg.BackgroundTransparency = 1
+    fullBg.Image = BACKGROUND_ID
+    fullBg.ImageTransparency = BG_TRANSPARENCY
+    fullBg.ScaleType = Enum.ScaleType.Crop
+    fullBg.ZIndex = -10
+    fullBg.Parent = imgui
+
+    local overlay = Instance.new("Frame")
+    overlay.Name = "CustomBgOverlay"
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = BG_OVERLAY_TR
+    overlay.BorderSizePixel = 0
+    overlay.ZIndex = -9
+    overlay.Parent = imgui
+
+    local windows = imgui:WaitForChild("Windows", 10)
+    if not windows then return end
+
+    local win
+    for _ = 1, 50 do
+        for _, obj in ipairs(windows:GetChildren()) do
+            if obj.Name == "Window" and obj:IsA("ImageLabel") then
+                win = obj
+                break
+            end
+        end
+        if win then break end
+        task.wait(0.1)
+    end
+    if not win then return end
+
+    win.BackgroundTransparency = 0.85
+    win.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    win.ImageTransparency = 0.55
+
+    local winStroke = Instance.new("UIStroke")
+    winStroke.Color = Color3.fromRGB(255, 255, 255)
+    winStroke.Thickness = 1
+    winStroke.Transparency = 0.6
+    winStroke.Parent = win
+
+    if PATCH_BUTTONS then
+        local function patchButton(obj)
+            if not (obj:IsA("TextButton") or obj:IsA("ImageButton")) then return end
+            if obj:GetAttribute("GlassPatched") then return end
+            obj:SetAttribute("GlassPatched", true)
+
+            obj.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+            obj.BackgroundTransparency = 0.85
+            obj.AutoButtonColor = false
+            obj.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+            for _, ch in ipairs(obj:GetChildren()) do
+                if ch:IsA("ImageLabel") and ch.Name:find("Roundify") then
+                    ch.ImageTransparency = 1
+                end
+            end
+
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = Color3.fromRGB(255, 255, 255)
+            stroke.Thickness = 1.2
+            stroke.Transparency = 0.45
+            stroke.Parent = obj
+
+            obj.MouseEnter:Connect(function()
+                TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundTransparency = 0.6}):Play()
+                TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.15}):Play()
+            end)
+            obj.MouseLeave:Connect(function()
+                TweenService:Create(obj, TweenInfo.new(0.15), {BackgroundTransparency = 0.85}):Play()
+                TweenService:Create(stroke, TweenInfo.new(0.15), {Transparency = 0.45}):Play()
+            end)
+        end
+
+        for _, obj in ipairs(win:GetDescendants()) do
+            patchButton(obj)
+        end
+
+        win.DescendantAdded:Connect(function(obj)
+            task.wait(0.05)
+            patchButton(obj)
+        end)
+    end
+end)
+-- ============================================
+
 local Killing = v6:AddTab("Killing")
 local v8 = v6:AddTab("Normal Farm")
 
@@ -288,7 +430,7 @@ t1.value9 = false
 t1.value10 = {}
 t1.value11 = false
 t1.value12 = nil
-Killing:AddSwitch("Auto Good Karma", function(p3)
+AutoSaveSwitch(Killing, "Auto Good Karma", function(p3)
 	t1.value5 = p3
 	task.spawn(function()
 		while t1.value5 do
@@ -359,7 +501,7 @@ Killing:AddSwitch("Auto Good Karma", function(p3)
 		end
 	end)
 end)
-Killing:AddSwitch("Auto Bad Karma", function(p4)
+AutoSaveSwitch(Killing, "Auto Bad Karma", function(p4)
 	t1.value6 = p4
 	task.spawn(function()
 		while t1.value6 do
@@ -430,7 +572,7 @@ Killing:AddSwitch("Auto Bad Karma", function(p4)
 		end
 	end)
 end)
-Killing:AddSwitch("Auto Whitelist Friends", function(p5)
+AutoSaveSwitch(Killing, "Auto Whitelist Friends", function(p5)
 	t1.value11 = p5
 
 	if not p5 then
@@ -503,7 +645,7 @@ Killing:AddTextBox("UnWhitelist", function(p7)
 
 	t1.value3[v84.Name] = nil
 end)
-Killing:AddSwitch("Auto Kill All", function(p8)
+AutoSaveSwitch(Killing, "Auto Kill All", function(p8)
 	t1.value7 = p8
 	task.spawn(function()
 		while t1.value7 do
@@ -635,7 +777,7 @@ t1.value1.PlayerRemoving:Connect(function(player_)
 		end
 	end
 end)
-Killing:AddSwitch("Start Kill Target", function(p11)
+AutoSaveSwitch(Killing, "Start Kill Target", function(p11)
 	t1.value8 = p11
 	task.spawn(function()
 		while t1.value8 do
@@ -723,7 +865,7 @@ t1.value1.PlayerRemoving:Connect(function(player_)
 		end
 	end
 end)
-Killing:AddSwitch("View Player", function(p13)
+AutoSaveSwitch(Killing, "View Player", function(p13)
 	t1.value9 = p13
 
 	if not t1.value9 then
@@ -1701,7 +1843,7 @@ v226:Add("Muscle King (Unique)")
 v226:Add("Entropic Blast (Unique)")
 v226:Add("Eternal Megastrike (Unique)")
 Shop:AddLabel(" / / / Auto Buy Toggles    ")
-Shop:AddSwitch("Auto Buy Pet", function(p25)
+AutoSaveSwitch(Shop, "Auto Buy Pet", function(p25)
 	_G.AutoBuyPet = p25
 
 	if not p25 then
@@ -1751,7 +1893,7 @@ Shop:AddSwitch("Auto Buy Pet", function(p25)
 		end
 	end)
 end)
-Shop:AddSwitch("Auto buy Aura", function(p26)
+AutoSaveSwitch(Shop, "Auto buy Aura", function(p26)
 	_G.AutoBuyAura = p26
 
 	if not p26 then
@@ -1825,7 +1967,7 @@ for _, v in ipairs({
 	v236:Add(v)
 end
 
-Shop:AddSwitch("Auto Buy Ultimates", function(p28)
+AutoSaveSwitch(Shop, "Auto Buy Ultimates", function(p28)
 	_G.AutoUpgradeUltimate = p28
 
 	if not p28 then
@@ -1914,41 +2056,41 @@ t1.value36 = {
 	["Ultra Mirage"] = true,
 	["Unstable Mirage"] = true
 }
-Shop:AddSwitch("Auto Sell All Pets", function(p29)
+AutoSaveSwitch(Shop, "Auto Sell All Pets", function(p29)
 	_G.AutoSellAllPets = p29
 end):Set(false)
-Shop:AddSwitch("Auto Evolve All Pets", function(p30)
+AutoSaveSwitch(Shop, "Auto Evolve All Pets", function(p30)
 	_G.AutoEvolveAllPets = p30
 end):Set(false)
-Shop:AddSwitch("Auto Sell Pets (Basic)", function(p31)
+AutoSaveSwitch(Shop, "Auto Sell Pets (Basic)", function(p31)
 	_G.AutoSellBasicPets = p31
 end):Set(false)
-Shop:AddSwitch("Auto Sell Pets (Advanced)", function(p32)
+AutoSaveSwitch(Shop, "Auto Sell Pets (Advanced)", function(p32)
 	_G.AutoSellAdvancedPets = p32
 end):Set(false)
-Shop:AddSwitch("Auto Sell Pets (Rare)", function(p33)
+AutoSaveSwitch(Shop, "Auto Sell Pets (Rare)", function(p33)
 	_G.AutoSellRarePets = p33
 end):Set(false)
-Shop:AddSwitch("Auto Sell Pets (Epic)", function(p34)
+AutoSaveSwitch(Shop, "Auto Sell Pets (Epic)", function(p34)
 	_G.AutoSellEpicPets = p34
 end):Set(false)
-Shop:AddSwitch("Auto Sell Pets (Unique)", function(p35)
+AutoSaveSwitch(Shop, "Auto Sell Pets (Unique)", function(p35)
 	_G.AutoSellUniquePets = p35
 end):Set(false)
 Shop:AddLabel("Auto Evolve Pets").TextSize = 20
-Shop:AddSwitch("Auto Evolve Pets (Basic)", function(p36)
+AutoSaveSwitch(Shop, "Auto Evolve Pets (Basic)", function(p36)
 	_G.AutoEvolveBasicPets = p36
 end):Set(false)
-Shop:AddSwitch("Auto Evolve Pets (Advanced)", function(p37)
+AutoSaveSwitch(Shop, "Auto Evolve Pets (Advanced)", function(p37)
 	_G.AutoEvolveAdvancedPets = p37
 end):Set(false)
-Shop:AddSwitch("Auto Evolve Pets (Rare)", function(p38)
+AutoSaveSwitch(Shop, "Auto Evolve Pets (Rare)", function(p38)
 	_G.AutoEvolveRarePets = p38
 end):Set(false)
-Shop:AddSwitch("Auto Evolve Pets (Epic)", function(p39)
+AutoSaveSwitch(Shop, "Auto Evolve Pets (Epic)", function(p39)
 	_G.AutoEvolveEpicPets = p39
 end):Set(false)
-Shop:AddSwitch("Auto Evolve Pets (Unique)", function(p40)
+AutoSaveSwitch(Shop, "Auto Evolve Pets (Unique)", function(p40)
 	_G.AutoEvolveUniquePets = p40
 end):Set(false)
 
@@ -2126,7 +2268,7 @@ function gettool()
 	game:GetService("Players").LocalPlayer.muscleEvent:FireServer("punch", "rightHand")
 end
 
-v264:AddSwitch("Tiny Rock", function(p41)
+AutoSaveSwitch(v264, "Tiny Rock", function(p41)
 	selectrock = "Tiny Island Rock"
 	getgenv().autoFarm = p41
 	task.spawn(function()
@@ -2165,7 +2307,7 @@ v264:AddSwitch("Tiny Rock", function(p41)
 	end)
 end)
 t1.value37 = nil
-v264:AddSwitch("Starter Rock", function(p42)
+AutoSaveSwitch(v264, "Starter Rock", function(p42)
 	selectrock = "Starter Island Rock"
 	getgenv().autoFarm = p42
 	task.spawn(function()
@@ -2203,7 +2345,7 @@ v264:AddSwitch("Starter Rock", function(p42)
 		end
 	end)
 end)
-v264:AddSwitch("Legend Beach Rock", function(p43)
+AutoSaveSwitch(v264, "Legend Beach Rock", function(p43)
 	selectrock = "Legend Beach Rock"
 	getgenv().autoFarm = p43
 	task.spawn(function()
@@ -2241,7 +2383,7 @@ v264:AddSwitch("Legend Beach Rock", function(p43)
 		end
 	end)
 end)
-v264:AddSwitch("Frozen Rock", function(p44)
+AutoSaveSwitch(v264, "Frozen Rock", function(p44)
 	selectrock = "Frost Gym Rock"
 	getgenv().autoFarm = p44
 	task.spawn(function()
@@ -2279,7 +2421,7 @@ v264:AddSwitch("Frozen Rock", function(p44)
 		end
 	end)
 end)
-v264:AddSwitch("Mythical Rock", function(p45)
+AutoSaveSwitch(v264, "Mythical Rock", function(p45)
 	selectrock = "Mythical Gym Rock"
 	getgenv().autoFarm = p45
 	task.spawn(function()
@@ -2317,7 +2459,7 @@ v264:AddSwitch("Mythical Rock", function(p45)
 		end
 	end)
 end)
-v264:AddSwitch("Eternal Rock", function(p46)
+AutoSaveSwitch(v264, "Eternal Rock", function(p46)
 	selectrock = "Eternal Gym Rock"
 	getgenv().autoFarm = p46
 	task.spawn(function()
@@ -2355,7 +2497,7 @@ v264:AddSwitch("Eternal Rock", function(p46)
 		end
 	end)
 end)
-v264:AddSwitch("Legend Rock", function(p47)
+AutoSaveSwitch(v264, "Legend Rock", function(p47)
 	selectrock = "Legend Gym Rock"
 	getgenv().autoFarm = p47
 	task.spawn(function()
@@ -2393,7 +2535,7 @@ v264:AddSwitch("Legend Rock", function(p47)
 		end
 	end)
 end)
-v264:AddSwitch("Muscle King Rock", function(p48)
+AutoSaveSwitch(v264, "Muscle King Rock", function(p48)
 	selectrock = "Muscle King Gym Rock"
 	getgenv().autoFarm = p48
 	task.spawn(function()
@@ -2431,7 +2573,7 @@ v264:AddSwitch("Muscle King Rock", function(p48)
 		end
 	end)
 end)
-v264:AddSwitch("Jungle Rock", function(p49)
+AutoSaveSwitch(v264, "Jungle Rock", function(p49)
 	selectrock = "Ancient Jungle Rock"
 	getgenv().autoFarm = p49
 	task.spawn(function()
@@ -2504,7 +2646,7 @@ Rebirths.AddTextBox(Rebirths, "Rebirth Target", function(p50)
 	end
 end)
 t1.value38 = nil
-t1.value39 = Rebirths:AddSwitch("Auto Rebirth Target", function(p51)
+t1.value39 = AutoSaveSwitch(Rebirths, "Auto Rebirth Target", function(p51)
 	_G.targetRebirthActive = p51
 
 	if not p51 then
@@ -2553,8 +2695,8 @@ t1.value39 = Rebirths:AddSwitch("Auto Rebirth Target", function(p51)
 			game:GetService("ReplicatedStorage").rEvents.rebirthRemote:InvokeServer("rebirthRequest")
 		end
 	end)
-end, "Renacimiento automático hasta alcanzar el objetivo")
-t1.value38 = Rebirths:AddSwitch("Auto Rebirth (Infinite)", function(p52)
+end)
+t1.value38 = AutoSaveSwitch(Rebirths, "Auto Rebirth (Infinite)", function(p52)
 	_G.infiniteRebirthActive = p52
 
 	if not p52 then
@@ -2587,8 +2729,8 @@ t1.value38 = Rebirths:AddSwitch("Auto Rebirth (Infinite)", function(p52)
 			game:GetService("ReplicatedStorage").rEvents.rebirthRemote:InvokeServer("rebirthRequest")
 		end
 	end)
-end, "Renacimiento continuo sin parar")
-Rebirths:AddSwitch("Auto Size 1", function(p53)
+end)
+AutoSaveSwitch(Rebirths, "Auto Size 1", function(p53)
 	_G.autoSizeActive = p53
 
 	if not p53 then
@@ -2610,8 +2752,8 @@ Rebirths:AddSwitch("Auto Size 1", function(p53)
 			game:GetService("ReplicatedStorage").rEvents.changeSpeedSizeRemote:InvokeServer("changeSize", 1)
 		end
 	end)
-end, "Establece el tamaño del personaje a 1 continuamente")
-Rebirths:AddSwitch("Auto Teleport to Muscle King", function(p54)
+end)
+AutoSaveSwitch(Rebirths, "Auto Teleport to Muscle King", function(p54)
 	_G.teleportActive = p54
 
 	if not p54 then
@@ -2635,7 +2777,7 @@ Rebirths:AddSwitch("Auto Teleport to Muscle King", function(p54)
 			end
 		end
 	end)
-end, "Teletransporte continuo al Rey Músculo")
+end)
 
 local v329 = v8:AddFolder("Auto Equip Tools")
 
@@ -2651,7 +2793,7 @@ v329:AddButton("Gamepass AutoLift", function()
 		IntValue.Parent = LocalPlayer.ownedGamepasses
 	end
 end, "Desbloquea el gamepass de AutoLift gratis")
-v329:AddSwitch("Auto Weight", function(p55)
+AutoSaveSwitch(v329, "Auto Weight", function(p55)
 	_G.AutoWeight = p55
 
 	if p55 then
@@ -2674,8 +2816,8 @@ v329:AddSwitch("Auto Weight", function(p55)
 			task.wait(0.1)
 		end
 	end)
-end, "Levanta pesas automáticamente")
-v329:AddSwitch("Auto Pushups", function(p56)
+end)
+AutoSaveSwitch(v329, "Auto Pushups", function(p56)
 	_G.AutoPushups = p56
 
 	if p56 then
@@ -2698,8 +2840,8 @@ v329:AddSwitch("Auto Pushups", function(p56)
 			task.wait(0.1)
 		end
 	end)
-end, "Haz flexiones automáticamente")
-v329:AddSwitch("Auto Handstands", function(p57)
+end)
+AutoSaveSwitch(v329, "Auto Handstands", function(p57)
 	_G.AutoHandstands = p57
 
 	if p57 then
@@ -2722,8 +2864,8 @@ v329:AddSwitch("Auto Handstands", function(p57)
 			task.wait(0.1)
 		end
 	end)
-end, "Haz paradas de manos automáticamente")
-v329:AddSwitch("Auto Situps", function(p58)
+end)
+AutoSaveSwitch(v329, "Auto Situps", function(p58)
 	_G.AutoSitups = p58
 
 	if p58 then
@@ -2746,8 +2888,8 @@ v329:AddSwitch("Auto Situps", function(p58)
 			task.wait(0.1)
 		end
 	end)
-end, "Haz abdominales automáticamente")
-v329:AddSwitch("Auto Punch", function(p59)
+end)
+AutoSaveSwitch(v329, "Auto Punch", function(p59)
 	_G.fastHitActive = p59
 
 	if p59 then
@@ -2795,8 +2937,8 @@ v329:AddSwitch("Auto Punch", function(p59)
 	end
 
 	Punch.Parent = game.Players.LocalPlayer.Backpack
-end, "Golpea automáticamente")
-v329:AddSwitch("Fast Tools", function(p60)
+end)
+AutoSaveSwitch(v329, "Fast Tools", function(p60)
 	_G.FastTools = p60
 
 	local LocalPlayer = game.Players.LocalPlayer
@@ -2842,7 +2984,7 @@ v329:AddSwitch("Fast Tools", function(p60)
 			Character[v[2]].Value = v[3]
 		end
 	end
-end, "Acelera todas las herramientas")
+end)
 
 local v357 = v6:AddTab("Fast Farm")
 
@@ -2906,7 +3048,7 @@ local function v360()
 	end
 end
 
-v357:AddSwitch("Anti AFK", function(p61)
+AutoSaveSwitch(v357, "Anti AFK", function(p61)
 	t1.value40 = p61
 
 	if p61 then
@@ -2953,7 +3095,7 @@ end
 t1.value46.Changed:Connect(v372)
 v372()
 getgenv()._AutoRepFarmEnabled = false
-v357:AddSwitch("Super Op Strength (250 Ms)", function(p62)
+AutoSaveSwitch(v357, "Super Op Strength (250 Ms)", function(p62)
 	getgenv()._AutoRepFarmEnabled = p62
 	warn("[Auto Rep Farm] Estado cambiado a:", p62 and "ON" or p62 or "OFF")
 end)
@@ -3089,7 +3231,7 @@ task.spawn(function()
 	end
 end)
 getgenv()._AutoRepFarmEnabled = false
-v357:AddSwitch("Super Strength(100 Ms)", function(p63)
+AutoSaveSwitch(v357, "Super Strength(100 Ms)", function(p63)
 	getgenv()._AutoRepFarmEnabled = p63
 	warn("[Auto Rep Farm] Estado cambiado a:", p63 and "ON" or p63 or "OFF")
 end)
@@ -3221,7 +3363,7 @@ task.spawn(function()
 		task.wait(t1.value80)
 	end
 end)
-v357:AddSwitch("Hide All Frames", function(p64)
+AutoSaveSwitch(v357, "Hide All Frames", function(p64)
 	for _, child in pairs(game:GetService("ReplicatedStorage"):GetChildren()) do
 		if child.Name:match("Frame$") then
 			child.Visible = not p64
@@ -3299,7 +3441,7 @@ function t1.value98()
 	return math.floor(v419)
 end
 
-v357:AddSwitch("Fast Rebirth", function(p66)
+AutoSaveSwitch(v357, "Fast Rebirth", function(p66)
 	getgenv().AutoFarming = p66
 
 	if not p66 then
@@ -3402,7 +3544,7 @@ task.spawn(function()
 		task.wait(1)
 	end
 end)
-v357:AddSwitch("Auto Eat Egg || 30 Minutes", function(p67)
+AutoSaveSwitch(v357, "Auto Eat Egg || 30 Minutes", function(p67)
 	t1.value99 = p67
 end)
 t1.value100 = false
@@ -3433,7 +3575,7 @@ task.spawn(function()
 		task.wait(1)
 	end
 end)
-v357:AddSwitch("Auto Eat Egg || 60 Minutes", function(p68)
+AutoSaveSwitch(v357, "Auto Eat Egg || 60 Minutes", function(p68)
 	t1.value100 = p68
 end)
 v357.AddButton(v357, "Anti Lag ( From Henne )", function()
@@ -3665,7 +3807,7 @@ end)
 local Miscs = v6:AddTab("Miscs")
 local v483 = Miscs:AddFolder("Miscellaneous 1")
 
-v483:AddSwitch("Auto Punch", function(p69)
+AutoSaveSwitch(v483, "Auto Punch", function(p69)
 	_G.FastPunch = p69
 
 	if p69 then
@@ -3758,7 +3900,7 @@ v483:AddSwitch("Auto Punch", function(p69)
 
 	Punch2.attackTime.Value = 0.35
 end)
-v483:AddSwitch("Auto Weight", function(p70)
+AutoSaveSwitch(v483, "Auto Weight", function(p70)
 	_G.FastWeight = p70
 
 	if p70 then
@@ -3840,7 +3982,7 @@ v483:AddSwitch("Auto Weight", function(p70)
 
 	Weight2.repTime.Value = 1
 end)
-v483:AddSwitch("Auto Pushups", function(p71)
+AutoSaveSwitch(v483, "Auto Pushups", function(p71)
 	_G.FastPushups = p71
 
 	if p71 then
@@ -3922,7 +4064,7 @@ v483:AddSwitch("Auto Pushups", function(p71)
 
 	Pushups2.repTime.Value = 1
 end)
-v483:AddSwitch("Auto Handstands", function(p72)
+AutoSaveSwitch(v483, "Auto Handstands", function(p72)
 	_G.FastHandstands = p72
 
 	if p72 then
@@ -4007,7 +4149,7 @@ end)
 
 local v523 = Miscs:AddFolder("Miscellaneous 2")
 
-v523:AddSwitch("Auto Spin Wheel", function(p73)
+AutoSaveSwitch(v523, "Auto Spin Wheel", function(p73)
 	_G.AutoSpinWheel = p73
 
 	if not p73 then
@@ -4030,7 +4172,7 @@ v523:AddSwitch("Auto Spin Wheel", function(p73)
 		end
 	end)
 end)
-v523:AddSwitch("Auto Claim Gifts", function(p74)
+AutoSaveSwitch(v523, "Auto Claim Gifts", function(p74)
 	_G.AutoClaimGifts = p74
 
 	if not p74 then
@@ -4055,7 +4197,7 @@ v523:AddSwitch("Auto Claim Gifts", function(p74)
 		end
 	end)
 end)
-v523:AddSwitch("Lock Position", function(p75)
+AutoSaveSwitch(v523, "Lock Position", function(p75)
 	if p75 then
 		local Character = player.Character
 		local CFrame_
@@ -4084,7 +4226,7 @@ v523:AddSwitch("Lock Position", function(p75)
 		unlockPlayerPosition()
 	end
 end)
-v523:AddSwitch("Auto Eat Eggs", function(p76)
+AutoSaveSwitch(v523, "Auto Eat Eggs", function(p76)
 	_G.AutoEgg = p76
 
 	if not p76 then
@@ -4110,7 +4252,7 @@ v523:AddSwitch("Auto Eat Eggs", function(p76)
 		end
 	end)
 end)
-v523:AddSwitch("Auto Eat Pineapple", function(p77)
+AutoSaveSwitch(v523, "Auto Eat Pineapple", function(p77)
 	_G.AutoPineapple = p77
 
 	if not p77 then
@@ -4136,14 +4278,14 @@ v523:AddSwitch("Auto Eat Pineapple", function(p77)
 		end
 	end)
 end)
-v523:AddSwitch("Hide Pets", function(p78)
+AutoSaveSwitch(v523, "Hide Pets", function(p78)
 	if p78 then
 		game:GetService("ReplicatedStorage").rEvents.showPetsEvent:FireServer("hidePets")
 	else
 		game:GetService("ReplicatedStorage").rEvents.showPetsEvent:FireServer("showPets")
 	end
 end)
-v523:AddSwitch("Unable Trade", function(p79)
+AutoSaveSwitch(v523, "Unable Trade", function(p79)
 	if p79 then
 		game:GetService("ReplicatedStorage").rEvents.tradingEvent:FireServer("disableTrading")
 	else
@@ -4160,7 +4302,7 @@ t1.value101 = {
 }
 t1.value102 = { "proteinEgg", "Protein Egg" }
 t1.value103 = nil
-v523:AddSwitch("Auto Eat Proteins", function(p80)
+AutoSaveSwitch(v523, "Auto Eat Proteins", function(p80)
 	if t1.value103 then
 		t1.value103:Disconnect()
 	end
@@ -4211,9 +4353,9 @@ v523:AddSwitch("Auto Eat Proteins", function(p80)
 			end
 		end
 	end)
-end, "Automatically eat all protein items repeatedly")
+end)
 t1.value104 = nil
-v523:AddSwitch("Auto Eat Protein Egg", function(p81)
+AutoSaveSwitch(v523, "Auto Eat Protein Egg", function(p81)
 	if t1.value104 then
 		t1.value104:Disconnect()
 	end
@@ -4260,12 +4402,12 @@ v523:AddSwitch("Auto Eat Protein Egg", function(p81)
 			end
 		end
 	end)
-end, "Automatically eat Protein Egg repeatedly")
+end)
 
 local v560 = Miscs:AddFolder("Miscellaneous 3")
 
 t1.value105 = false
-v560:AddSwitch("God Mode (Brawl)", function(p82)
+AutoSaveSwitch(v560, "God Mode (Brawl)", function(p82)
 	t1.value105 = p82
 
 	if not p82 then
@@ -4280,7 +4422,7 @@ v560:AddSwitch("God Mode (Brawl)", function(p82)
 	end)
 end)
 t1.value106 = false
-v560:AddSwitch("Auto Join Brawl", function(p83)
+AutoSaveSwitch(v560, "Auto Join Brawl", function(p83)
 	t1.value106 = p83
 
 	if not p83 then
@@ -4383,14 +4525,14 @@ function t1.value112()
 	end
 end
 
-v560:AddSwitch("Walk on Water", function(p84)
+AutoSaveSwitch(v560, "Walk on Water", function(p84)
 	if p84 then
 		t1.value111()
 	else
 		t1.value112()
 	end
 end)
-v560:AddSwitch("No-Clip", function(p85)
+AutoSaveSwitch(v560, "No-Clip", function(p85)
 	_G.NoClip = p85
 
 	if not p85 then
@@ -4425,7 +4567,7 @@ v560:AddSwitch("No-Clip", function(p85)
 		Duration = 0
 	})
 end)
-v560:AddSwitch("Jumpy Infinite", function(p86)
+AutoSaveSwitch(v560, "Jumpy Infinite", function(p86)
 	_G.InfiniteJump = p86
 
 	if not p86 then
@@ -5154,6 +5296,147 @@ v690:AddButton("Calculate Durability", function()
 end)
 
 local Informations = v6:AddTab("Informations")
+local Settings = v6:AddTab("Настройки")
+
+Settings:AddButton("💾 СОХРАНИТЬ НАСТРОЙКИ", function()
+    SaveConfig()
+    game:GetService("StarterGui"):SetCore("SendNotification", {Title="Успех", Text="Настройки сохранены!", Duration=3})
+end)
+
+Settings:AddButton("🗑️ УДАЛИТЬ ФАЙЛ КОНФИГА", function()
+    if delfile and isfile(CONFIG_FILE) then
+        delfile(CONFIG_FILE)
+        game:GetService("StarterGui"):SetCore("SendNotification", {Title="Сброс", Text="Файл конфига удален!", Duration=3})
+    end
+end)
+
+-- ============================================
+--  AUTO KILL SERVER HOP
+-- ============================================
+local KillAuraTab = v6:AddTab("Auto Kill ServerHop")
+KillAuraTab:AddLabel("Auto Kill Server Hop").TextSize = 20
+
+local _G_KillAuraActive = false
+local _G_ServerHopActive = false
+
+local function GetOutServer()
+    local Services = setmetatable({}, {
+        __index = function(self, name)
+            local success, cache = pcall(function()
+                return cloneref(game:GetService(name))
+            end)
+            if success then
+                rawset(self, name, cache)
+                return cache
+            else
+                return game:GetService(name)
+            end
+        end
+    })
+    local PlaceId, JobId = game.PlaceId, game.JobId
+    local servers = {}
+    local req = game:HttpGet("https://games.roblox.com/v1/games/" .. PlaceId .. "/servers/Public?sortOrder=Desc&limit=100&excludeFullGames=true")
+    local body = Services.HttpService:JSONDecode(req)
+
+    if body and body.data then
+        for i, v in next, body.data do
+            if type(v) == "table" and tonumber(v.playing) and tonumber(v.maxPlayers) and v.playing < v.maxPlayers and v.id ~= JobId then
+                table.insert(servers, 1, v.id)
+            end
+        end
+    end
+    
+    if #servers >= 1 then
+        Services.TeleportService:TeleportToPlaceInstance(PlaceId, servers[math.random(1, #servers)], game.Players.LocalPlayer)
+    else
+        Services.TeleportService:Teleport(PlaceId, game.Players.LocalPlayer)
+    end
+end
+
+AutoSaveSwitch(KillAuraTab, "Auto Kill (Save Zone)", function(state)
+    _G_KillAuraActive = state
+    
+    if state then
+        workspace.FallenPartsDestroyHeight = 0/0
+        local SafeSpot = Instance.new("Part")
+        SafeSpot.Parent = workspace
+        SafeSpot.Name = "safety"
+        SafeSpot.Position = Vector3.new(0,-1000,0)
+        SafeSpot.Size = Vector3.new(500,1,500)
+        SafeSpot.Anchored = true
+        
+        if game.Players.LocalPlayer.Character then
+            game.Players.LocalPlayer.Character:MoveTo(workspace.safety.Position)
+        end
+        
+        task.spawn(function()
+            while _G_KillAuraActive do
+                task.wait(0.09)
+                pcall(function()
+                    local player = game.Players.LocalPlayer
+                    local punch = player.Backpack:FindFirstChild("Punch") or (player.Character and player.Character:FindFirstChild("Punch"))
+                    
+                    if punch and punch.Parent == player.Backpack then
+                        punch.Parent = player.Character
+                    else
+                        for _, target in ipairs(game.Players:GetPlayers()) do
+                            if (target ~= player and target:FindFirstChild("Durability") and target:FindFirstChild("leaderstats")) then
+                                if (target.Durability.Value <= player.leaderstats.Strength.Value * 2 and target.leaderstats.Rebirths.Value <= 200000) then
+                                    local root = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+                                    local rHand = player.Character and player.Character:FindFirstChild("RightHand")
+                                    local lHand = player.Character and player.Character:FindFirstChild("LeftHand")
+                                    
+                                    player.muscleEvent:FireServer("punch","rightHand")
+                                    
+                                    if root and rHand and lHand then
+                                        firetouchinterest(rHand, root, 1)
+                                        firetouchinterest(lHand, root, 1)
+                                        firetouchinterest(rHand, root, 0)
+                                        firetouchinterest(lHand, root, 0)
+                                    end
+                                end
+                            end
+                        end
+                        
+                        if player.Character and player.Character:FindFirstChild("Humanoid") then
+                            if player.Character.Humanoid.Health <= player.Character.Humanoid.MaxHealth / 10 or game.Workspace.DistributedGameTime >= 120 then
+                                GetOutServer()
+                            end
+                        end
+                    end
+                end)
+            end
+        end)
+    else
+        if workspace:FindFirstChild("safety") then
+            workspace.safety:Destroy()
+        end
+        pcall(function()
+            workspace.FallenPartsDestroyHeight = -500
+        end)
+        if game.Players.LocalPlayer.Character then
+            game.Players.LocalPlayer.Character:MoveTo(Vector3.new(2, 8, 115))
+        end
+    end
+end)
+
+AutoSaveSwitch(KillAuraTab, "Auto Server Hop", function(state)
+    _G_ServerHopActive = state
+    
+    if state then
+        task.spawn(function()
+            while _G_ServerHopActive do
+                if #game.Players:GetPlayers() <= 9 then
+                    task.wait(6)
+                    if _G_ServerHopActive then
+                        GetOutServer()
+                    end
+                end
+                task.wait(1)
+            end
+        end)
+    end
+end)
 
 Informations:AddLabel(" ").TextSize = 50
 Informations:AddLabel("TheDestroyes Private").TextSize = 30
